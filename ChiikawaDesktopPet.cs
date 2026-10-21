@@ -132,7 +132,7 @@ class Pet:Form {
   using(var brush=new SolidBrush(green))g.FillPolygon(brush,crown);
   using(var pen=new Pen(green,1.8f)){pen.StartCap=LineCap.Round;pen.EndCap=LineCap.Round;g.DrawLine(pen,27,47,45,47);}
   using(var brush=new SolidBrush(Color.FromArgb(68,94,61)))using(var font=CertificateTypeface.Create(13.5f))g.DrawString("제초 자격증",font,brush,61,20);
-  using(var brush=new SolidBrush(Color.FromArgb(139,150,123)))using(var font=CertificateTypeface.Create(10.5f))g.DrawString("풀뽑기 검정",font,brush,63,44);
+  using(var brush=new SolidBrush(Color.FromArgb(139,150,123)))using(var font=new Font("Malgun Gothic",9.5f,FontStyle.Regular))g.DrawString("풀뽑기 검정",font,brush,61,43);
   float badgeX=Width-123;
   using(var badge=new GraphicsPath()){
    badge.AddArc(badgeX,39,8,8,180,90);badge.AddArc(badgeX+32,39,8,8,270,90);

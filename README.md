@@ -132,7 +132,7 @@ v0.2.2에서 단일 선택, 여러 항목과 기타 동시 선택, 기타의 한
 
 ## 소스에서 빌드
 
-자격증 제목·부제에는 둥근 한글 **Jua** 글꼴을 사용하며, 실행 파일에 포함되어 별도 글꼴 설치가 필요하지 않습니다. 글꼴 출처는 [Google Fonts의 Jua](https://github.com/google/fonts/tree/main/ofl/jua)이며, 저작권 및 SIL Open Font License는 함께 제공하는 `Jua-OFL.txt`를 확인하세요.
+자격증 제목에는 둥근 한글 **Jua** 글꼴을 사용하며, 실행 파일에 포함되어 별도 글꼴 설치가 필요하지 않습니다. 글꼴 출처는 [Google Fonts의 Jua](https://github.com/google/fonts/tree/main/ofl/jua)이며, 저작권 및 SIL Open Font License는 함께 제공하는 `Jua-OFL.txt`를 확인하세요.
 
 `build.ps1`을 Windows PowerShell에서 실행하면 `ChiikawaDesktopPet.exe`가 만들어집니다. Windows의 .NET Framework C# 컴파일러를 사용합니다. 배포본에는 실행 파일이 포함되어 있어 사용자가 직접 빌드할 필요는 없습니다.
 
