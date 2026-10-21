@@ -131,8 +131,8 @@ class Pet:Form {
   PointF[] crown={new PointF(25,38),new PointF(24,27),new PointF(30,31),new PointF(36,24),new PointF(42,31),new PointF(48,27),new PointF(47,38)};
   using(var brush=new SolidBrush(green))g.FillPolygon(brush,crown);
   using(var pen=new Pen(green,1.8f)){pen.StartCap=LineCap.Round;pen.EndCap=LineCap.Round;g.DrawLine(pen,27,42,45,42);}
-  using(var brush=new SolidBrush(Color.FromArgb(68,94,61)))using(var font=new Font("Malgun Gothic",12.5f,FontStyle.Bold))g.DrawString("제초 자격증",font,brush,61,15);
-  using(var brush=new SolidBrush(Color.FromArgb(139,150,123)))using(var font=new Font("Malgun Gothic",8.5f))g.DrawString("풀뽑기 검정",font,brush,63,41);
+  using(var brush=new SolidBrush(Color.FromArgb(68,94,61)))using(var font=CertificateTypeface.Create(16.5f))g.DrawString("제초 자격증",font,brush,61,15);
+  using(var brush=new SolidBrush(Color.FromArgb(139,150,123)))using(var font=CertificateTypeface.Create(9.5f))g.DrawString("풀뽑기 검정",font,brush,63,41);
   float badgeX=Width-123;
   using(var badge=new GraphicsPath()){
    badge.AddArc(badgeX,39,8,8,180,90);badge.AddArc(badgeX+32,39,8,8,270,90);
