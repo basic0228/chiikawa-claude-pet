@@ -8,7 +8,7 @@ try {
  $state=switch($EventName){
   'SessionStart' {'idle'}
   'UserPromptSubmit' {'working'}
-  'PreToolUse' {'working'}
+  'PreToolUse' {if($data.tool_name -eq 'AskUserQuestion'){'waiting'}else{'working'}}
   'PostToolUse' {'working'}
   'PermissionRequest' {'waiting'}
   'Notification' {if($data.notification_type -in @('permission_prompt','idle_prompt','elicitation_dialog')){'waiting'}else{'ignore'}}

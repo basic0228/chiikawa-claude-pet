@@ -11,7 +11,7 @@ try {
    foreach($eventProperty in @($settings.hooks.PSObject.Properties)){
     $kept=@()
     foreach($group in @($eventProperty.Value)){
-     $handlers=@($group.hooks|Where-Object {$_.command -notlike ('*'+$eventScript+'*')})
+     $handlers=@($group.hooks|Where-Object {$_.command -notlike ('*'+$eventScript+'*') -and $_.command -notlike ('*'+(Join-Path $PSScriptRoot 'question.ps1')+'*')})
      if($handlers.Count -gt 0){$group.hooks=$handlers;$kept+=,$group}
     }
     if($kept.Count -gt 0){$settings.hooks|Add-Member -MemberType NoteProperty -Name $eventProperty.Name -Value $kept -Force}else{$settings.hooks.PSObject.Properties.Remove($eventProperty.Name)}

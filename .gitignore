@@ -1,4 +1,7 @@
 status/
+questions/
+question-tests/
+question-test-results.txt
 position-*.txt
 settings.txt
 test-results.txt

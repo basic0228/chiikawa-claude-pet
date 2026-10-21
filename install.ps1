@@ -6,9 +6,19 @@ $events=@('SessionStart','UserPromptSubmit','PreToolUse','PostToolUse','Permissi
 foreach($eventName in $events){
  $command='powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+(Join-Path $PSScriptRoot 'event.ps1')+'" -EventName '+$eventName
  $existing=if($settings.hooks.PSObject.Properties[$eventName]){@($settings.hooks.$eventName)}else{@()}
- $kept=@($existing | Where-Object { !(@($_.hooks | Where-Object { $_.command -like ('*'+(Join-Path $PSScriptRoot 'event.ps1')+'*') }).Count) })
- $entry=[pscustomobject]@{matcher='';hooks=@([pscustomobject]@{type='command';command=$command;timeout=5})}
- $settings.hooks | Add-Member -MemberType NoteProperty -Name $eventName -Value @($kept+$entry) -Force
+ $kept=@()
+ foreach($group in $existing){
+  $handlers=@($group.hooks|Where-Object {$_.command -notlike ('*'+(Join-Path $PSScriptRoot 'event.ps1')+'*') -and $_.command -notlike ('*'+(Join-Path $PSScriptRoot 'question.ps1')+'*')})
+  if($handlers.Count){$group.hooks=$handlers;$kept+=,$group}
+ }
+ $matcher=if($eventName -eq 'PreToolUse'){'^(?!AskUserQuestion$).*'}else{''}
+ $entry=[pscustomobject]@{matcher=$matcher;hooks=@([pscustomobject]@{type='command';command=$command;timeout=5})}
+ $entries=@($kept+$entry)
+ if($eventName -eq 'PreToolUse'){
+  $questionCommand='powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+(Join-Path $PSScriptRoot 'question.ps1')+'"'
+  $entries+= [pscustomobject]@{matcher='^AskUserQuestion$';hooks=@([pscustomobject]@{type='command';command=$questionCommand;timeout=620})}
+ }
+ $settings.hooks | Add-Member -MemberType NoteProperty -Name $eventName -Value $entries -Force
 }
 if(Test-Path -LiteralPath $settingsPath){Copy-Item -LiteralPath $settingsPath -Destination ($settingsPath+'.chiikawa-backup-'+(Get-Date -Format 'yyyyMMddHHmmss'))}
 [IO.Directory]::CreateDirectory((Split-Path -Parent $settingsPath))|Out-Null

@@ -53,10 +53,10 @@ static class Geometry {
 class PetApp:ApplicationContext {
  public static readonly string[] Names={"치이카와","하치와레","우사기","모몽가"};
  public List<Pet> Pets=new List<Pet>(); public bool Paused=true,Follow,ClickThrough; public int PetSize=160;
- public ClaudeStatus Claude=new ClaudeStatus(); NotifyIcon tray; public EventWaitHandle StopSignal=new EventWaitHandle(false,EventResetMode.ManualReset,"Local.ChiikawaClaudePet.Stop.v1"); ContextMenuStrip menu; TimerHolder smoke; bool quitting;
+ public QuestionController Questions; public ClaudeStatus Claude=new ClaudeStatus(); NotifyIcon tray; public EventWaitHandle StopSignal=new EventWaitHandle(false,EventResetMode.ManualReset,"Local.ChiikawaClaudePet.Stop.v1"); ContextMenuStrip menu; TimerHolder smoke; bool quitting;
  string settings=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"settings.txt");
  public PetApp(bool test){
-  Load(); for(int i=0;i<1;i++){var p=new Pet(this,i);Pets.Add(p);p.Show();}
+  Questions=new QuestionController(this);Load(); for(int i=0;i<1;i++){var p=new Pet(this,i);Pets.Add(p);p.Show();}
   menu=new ContextMenuStrip();menu.Opening+=(s,e)=>FillMenu(menu);
   tray=new NotifyIcon{Text="치이카와 데스크톱 펫",Icon=SystemIcons.Information,ContextMenuStrip=menu,Visible=true};
   tray.DoubleClick+=(s,e)=>Reset();
@@ -77,18 +77,18 @@ class PetApp:ApplicationContext {
   m.Items.Add("종료",null,(s,e)=>Quit());
  }
  public void Reset(){ClickThrough=false;Follow=false;foreach(var p in Pets){p.SetClickThrough(false);p.Rehome();p.Show();}}
- public void Quit(){if(quitting)return;quitting=true;Save();if(smoke!=null)smoke.Dispose();foreach(var p in Pets){p.AllowClose=true;p.Close();}tray.Visible=false;tray.Dispose();menu.Dispose();StopSignal.Dispose();ExitThread();}
+ public void Quit(){if(quitting)return;quitting=true;if(Questions!=null)Questions.Dispose();Save();if(smoke!=null)smoke.Dispose();foreach(var p in Pets){p.AllowClose=true;p.Close();}tray.Visible=false;tray.Dispose();menu.Dispose();StopSignal.Dispose();ExitThread();}
 }
 class TimerHolder:IDisposable {System.Windows.Forms.Timer t; public TimerHolder(int ms,Action a){t=new System.Windows.Forms.Timer{Interval=ms};t.Tick+=(s,e)=>{t.Stop();a();};t.Start();}public void Dispose(){t.Dispose();}}
 class Pet:Form {
  [DllImport("user32.dll",EntryPoint="GetWindowLongW")] static extern int GetWindowLong(IntPtr h,int n);
  [DllImport("user32.dll",EntryPoint="SetWindowLongW")] static extern int SetWindowLong(IntPtr h,int n,int v);
  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h,IntPtr after,int x,int y,int cx,int cy,uint flags);
- public bool AllowClose; PetApp app; int kind; Random random; System.Windows.Forms.Timer timer; ContextMenuStrip menu;
+ int questionHeight; Point questionAnchor; public bool AllowClose; PetApp app; int kind; Random random; System.Windows.Forms.Timer timer; ContextMenuStrip menu;
  bool held,moved,sleeping,suppressRelease; Point origin,mouseDown; double x,y,vx,vy,phase; int changeIn,reaction,displayCheck; const int TickMs=33;
  public Pet(PetApp owner,int index){app=owner;kind=index;random=new Random(Environment.TickCount+index*971);
   FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;DoubleBuffered=false;StartPosition=FormStartPosition.Manual;
-  Text=PetApp.Names[kind];AccessibleName=Text;Cursor=Cursors.Hand;Size=new Size(Math.Max(320,app.PetSize+20),app.PetSize+195);
+  Text=PetApp.Names[kind];AccessibleName=Text;Cursor=Cursors.Hand;Size=new Size(Math.Max(320,app.PetSize+20),app.PetSize+195+questionHeight);
   menu=new ContextMenuStrip();menu.Opening+=(s,e)=>app.FillMenu(menu);ContextMenuStrip=menu;
   MouseDown+=Down;MouseMove+=MovePet;MouseUp+=Up;MouseDoubleClick+=(s,e)=>{if(e.Button==MouseButtons.Left){sleeping=!sleeping;suppressRelease=true;reaction=0;Invalidate();}};
   MouseCaptureChanged+=(s,e)=>{if(held&&!Capture){held=false;x=Left;y=Top;}};
@@ -98,16 +98,17 @@ class Pet:Form {
  protected override bool ShowWithoutActivation{get{return true;}}
  protected override CreateParams CreateParams{get{var c=base.CreateParams;c.ExStyle|=0x08080080;return c;}}
  public void SetClickThrough(bool enabled){int style=GetWindowLong(Handle,-20);SetWindowLong(Handle,-20,enabled?style|0x20:style&~0x20);SetWindowPos(Handle,IntPtr.Zero,0,0,0,0,0x37);}
- public void ResizePet(){Size=new Size(Math.Max(320,app.PetSize+20),app.PetSize+195);ClampHere();Invalidate();}
+ public void SetQuestionHeight(int height){if(questionHeight==height)return;if(questionHeight==0&&height>0)questionAnchor=Location;bool restore=questionHeight>0&&height==0;questionHeight=height;ResizePet();if(restore){Location=questionAnchor;ClampHere();}}
+ public void ResizePet(){Size=new Size(Math.Max(320,app.PetSize+20),app.PetSize+195+questionHeight);ClampHere();Invalidate();}
  string PositionFile {get{return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"position-"+kind+".txt");}}
- public void SavePosition(){try{File.WriteAllText(PositionFile,Left+","+Top);}catch(IOException){}catch(UnauthorizedAccessException){}}
+ public void SavePosition(){if(questionHeight>0)questionAnchor=Location;try{File.WriteAllText(PositionFile,Left+","+Top);}catch(IOException){}catch(UnauthorizedAccessException){}}
  public void Rehome(){var a=Screen.PrimaryScreen.WorkingArea;var p=Geometry.Clamp(new Point(a.Left+40+kind*(app.PetSize+20),a.Bottom-Height-20),Size,a);Location=p;x=Left;y=Top;ChooseDirection();}
  void ClampHere(){var p=Geometry.Clamp(Location,Size,Screen.FromRectangle(Bounds).WorkingArea);Location=p;x=Left;y=Top;}
  void ChooseDirection(){var angle=random.NextDouble()*Math.PI*2;double speed=.55+kind*.13;vx=Math.Cos(angle)*speed;vy=Math.Sin(angle)*speed*.65;changeIn=random.Next(75,220);}
  void Down(object s,MouseEventArgs e){if(e.Button!=MouseButtons.Left)return;held=true;moved=false;origin=Location;mouseDown=Cursor.Position;Capture=true;}
  void MovePet(object s,MouseEventArgs e){if(!held)return;var d=new Point(Cursor.Position.X-mouseDown.X,Cursor.Position.Y-mouseDown.Y);if(Math.Abs(d.X)+Math.Abs(d.Y)>5)moved=true;if(moved){var proposed=new Point(origin.X+d.X,origin.Y+d.Y);var area=Screen.FromPoint(Cursor.Position).WorkingArea;Location=Geometry.Clamp(proposed,Size,area);x=Left;y=Top;}}
  void Up(object s,MouseEventArgs e){if(e.Button!=MouseButtons.Left||!held)return;held=false;Capture=false;ClampHere();if(moved)SavePosition();if(suppressRelease){suppressRelease=false;}else if(!moved){reaction=sleeping?0:60;}changeIn=45;Invalidate();}
- void Step(){if(app.StopSignal.WaitOne(0)){app.Quit();return;}app.Claude.Poll();if(!Visible)return;phase+=.12;if(reaction>0)reaction--;if(++displayCheck>=60){displayCheck=0;if(!held)ClampHere();}
+ void Step(){if(app.StopSignal.WaitOne(0)){app.Quit();return;}app.Claude.Poll();app.Questions.Poll(this);if(!Visible)return;phase+=.12;if(reaction>0)reaction--;if(++displayCheck>=60){displayCheck=0;if(!held)ClampHere();}
   Render();
  }
  protected override void OnShown(EventArgs e){base.OnShown(e);Render();}
@@ -150,7 +151,7 @@ class Pet:Form {
    g.DrawString(speech,font,brush,new RectangleF(20,102,Width-40,51),format);
   PointF[] tail={new PointF(Width/2f-10,166),new PointF(Width/2f,178),new PointF(Width/2f+8,166)};
   using(var fill=new SolidBrush(paper))g.FillPolygon(fill,tail);
-  var saved=g.Save();g.TranslateTransform((Width-app.PetSize)/2f,185);g.ScaleTransform(app.PetSize/160f,app.PetSize/160f);
+  var saved=g.Save();g.TranslateTransform((Width-app.PetSize)/2f,185+questionHeight);g.ScaleTransform(app.PetSize/160f,app.PetSize/160f);
   Art.Draw(g,kind,(float)phase,sleeping,held||reaction>0||app.Claude.State=="done");g.Restore(saved);
  }
  void Render(){if(!IsHandleCreated||IsDisposed)return;using(var bitmap=new Bitmap(Width,Height,System.Drawing.Imaging.PixelFormat.Format32bppPArgb)){
@@ -193,7 +194,7 @@ static class Art {
  }
 }
 static class Tests {
- public static void Run(string file){int count=0;Action<bool,string> check=(ok,name)=>{if(!ok)throw new Exception(name);count++;};
+ public static void Run(string file){QuestionTests.Run();int count=0;Action<bool,string> check=(ok,name)=>{if(!ok)throw new Exception(name);count++;};
   var size=new Size(160,195);var area=new Rectangle(-1920,0,1920,1040);
   check(Geometry.Clamp(new Point(-2000,-50),size,area)==new Point(-1920,0),"negative monitor origin");
   check(Geometry.Clamp(new Point(0,1040),size,area)==new Point(-160,845),"right bottom edges");
@@ -202,7 +203,7 @@ static class Tests {
   var rand=new Random(41);for(int i=0;i<5000;i++){var a=new Rectangle(rand.Next(-3000,3000),rand.Next(-2000,2000),rand.Next(240,4000),rand.Next(240,2200));var p=Geometry.Clamp(new Point(rand.Next(-5000,5000),rand.Next(-5000,5000)),size,a);check(p.X>=a.Left&&p.Y>=a.Top&&p.X+size.Width<=a.Right&&p.Y+size.Height<=a.Bottom,"bounds property");}
   using(var b=new Bitmap(160,195))using(var g=Graphics.FromImage(b)){for(int k=0;k<4;k++)for(int s=0;s<3;s++){g.Clear(Color.Magenta);Art.Draw(g,k,1,s==1,s==2);check(b.GetPixel(80,80).ToArgb()!=Color.Magenta.ToArgb(),"character rendered");}}
   var app=new PetApp(false);try{
-   var pet=app.Pets[0];var flags=System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;
+   var pet=app.Pets[0];QuestionTests.Preview(app,pet);var flags=System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;
    Action<string,int> send=(name,clicks)=>typeof(Control).GetMethod(name,flags).Invoke(pet,new object[]{new MouseEventArgs(MouseButtons.Left,clicks,80,80,0)});
    var sleeping=typeof(Pet).GetField("sleeping",flags);
    for(int gesture=0;gesture<2;gesture++){
