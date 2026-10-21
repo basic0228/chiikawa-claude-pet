@@ -113,7 +113,7 @@ class Pet:Form {
  protected override void OnShown(EventArgs e){base.OnShown(e);Render();}
  protected override void OnPaint(PaintEventArgs e){Render();}
  public void DrawFrame(Graphics g){
-  g.Clear(Color.Transparent);g.SmoothingMode=SmoothingMode.AntiAlias;
+  g.Clear(Color.Transparent);g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
   Color ink=Color.FromArgb(91,73,59),green=Color.FromArgb(105,151,96),paper=Color.FromArgb(255,253,245);
   float right=Width-5;
   using(var card=new GraphicsPath()){
@@ -123,11 +123,20 @@ class Pet:Form {
    using(var pen=new Pen(ink,1.8f))g.DrawPath(pen,card);
   }
   using(var pen=new Pen(Color.FromArgb(188,203,166),1))g.DrawRectangle(pen,10,11,Width-21,148);
-  PointF[] crown={new PointF(20,25),new PointF(18,13),new PointF(25,18),new PointF(31,10),new PointF(37,18),new PointF(44,13),new PointF(42,25)};
+  using(var brush=new SolidBrush(Color.FromArgb(236,241,226)))g.FillEllipse(brush,19,18,34,34);
+  PointF[] crown={new PointF(25,38),new PointF(24,27),new PointF(30,31),new PointF(36,24),new PointF(42,31),new PointF(48,27),new PointF(47,38)};
   using(var brush=new SolidBrush(green))g.FillPolygon(brush,crown);
-  using(var pen=new Pen(green,2))g.DrawLine(pen,21,29,41,29);
-  using(var brush=new SolidBrush(ink))using(var font=new Font("Malgun Gothic",12,FontStyle.Bold))g.DrawString("제초 자격증",font,brush,49,12);
-  using(var brush=new SolidBrush(green))using(var font=new Font("Malgun Gothic",8.5f))g.DrawString("草むしり  ·  5급",font,brush,50,37);
+  using(var pen=new Pen(green,1.8f)){pen.StartCap=LineCap.Round;pen.EndCap=LineCap.Round;g.DrawLine(pen,27,42,45,42);}
+  using(var brush=new SolidBrush(Color.FromArgb(68,94,61)))using(var font=new Font("Malgun Gothic",12.5f,FontStyle.Bold))g.DrawString("제초 자격증",font,brush,61,15);
+  using(var brush=new SolidBrush(Color.FromArgb(139,150,123)))using(var font=new Font("Yu Gothic UI",8.5f))g.DrawString("草むしり検定",font,brush,63,41);
+  float badgeX=Width-123;
+  using(var badge=new GraphicsPath()){
+   badge.AddArc(badgeX,39,8,8,180,90);badge.AddArc(badgeX+32,39,8,8,270,90);
+   badge.AddArc(badgeX+32,50,8,8,0,90);badge.AddArc(badgeX,50,8,8,90,90);badge.CloseFigure();
+   using(var brush=new SolidBrush(Color.FromArgb(235,241,224)))g.FillPath(brush,badge);
+  }
+  using(var brush=new SolidBrush(Color.FromArgb(94,124,76)))using(var font=new Font("Malgun Gothic",8.5f,FontStyle.Bold))using(var format=new StringFormat{Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center})
+   g.DrawString("5급",font,brush,new RectangleF(badgeX,39,40,19),format);
   var portrait=new Rectangle(Width-67,17,48,42);
   using(var brush=new SolidBrush(Color.FromArgb(226,236,224)))g.FillRectangle(brush,portrait);
   var clip=g.Save();g.SetClip(portrait);g.TranslateTransform(Width-78,15);g.ScaleTransform(.46f,.46f);Art.Draw(g,kind,0,false,false);g.Restore(clip);
