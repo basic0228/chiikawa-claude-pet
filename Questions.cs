@@ -68,7 +68,7 @@ class QuestionPanel:Form {
    if(option==null||String.IsNullOrWhiteSpace(option.label))continue;
    var label=option.label;int height=SoftTheme.ChoiceHeight(label,option.description);
    if(q.multiSelect){var check=new SoftCheck{Text=label,Description=option.description,Width=280,Height=height,Margin=new Padding(0,0,0,7)};content.Controls.Add(check);checks.Add(Tuple.Create((CheckBox)check,label));if(picks.ContainsKey(q.question)&&picks[q.question].Contains(label))check.Checked=true;}
-   else {var radio=new SoftRadio{Text=label,Description=option.description,Width=280,Height=height,Margin=new Padding(0,0,0,7)};content.Controls.Add(radio);radios.Add(Tuple.Create((RadioButton)radio,label));if(previous==label)radio.Checked=true;}
+   else {var radio=new SoftRadio{Text=label,Description=option.description,Width=280,Height=height,Margin=new Padding(0,0,0,7)};content.Controls.Add(radio);radios.Add(Tuple.Create((RadioButton)radio,label));if(picks.ContainsKey(q.question)&&picks[q.question].Contains(label))radio.Checked=true;}
   }
   if(q.multiSelect){otherCheck=new SoftCheck{Text="기타 · 직접 입력",Width=280,Height=40,IsOther=true,Margin=new Padding(0,0,0,7)};otherRadio=null;content.Controls.Add(otherCheck);}
   else {otherRadio=new SoftRadio{Text="기타 · 직접 입력",Width=280,Height=40,IsOther=true,Margin=new Padding(0,0,0,7)};otherCheck=null;content.Controls.Add(otherRadio);}
@@ -85,13 +85,14 @@ class QuestionPanel:Form {
   foreach(var radio in radios)radio.Item1.CheckedChanged+=(s,e)=>validation.Text="";
   foreach(var check in checks)check.Item1.CheckedChanged+=(s,e)=>validation.Text="";
   var actions=new FlowLayoutPanel{Width=288,Height=42,Margin=new Padding(0)};
-  back=Button("이전",65);back.Enabled=index>0;back.Click+=(s,e)=>{index--;Build();};if(index>0)actions.Controls.Add(back);
+  back=Button("이전",65);back.Enabled=index>0;back.Click+=(s,e)=>{SaveDraft();index--;Build();};if(index>0)actions.Controls.Add(back);
   next=Button(index==Request.questions.Length-1?"답변 보내기":"다음",index>0?207:280);next.Click+=(s,e)=>SubmitCurrent();actions.Controls.Add(next);content.Controls.Add(actions);
   var fallback=new LinkLabel{Text="클로드 창에서 답할게요",Width=280,Height=24,TextAlign=ContentAlignment.MiddleCenter,LinkColor=Color.FromArgb(145,151,128),ActiveLinkColor=Color.FromArgb(102,130,84),LinkBehavior=LinkBehavior.HoverUnderline,Margin=new Padding(0,7,0,0)};fallback.LinkClicked+=(s,e)=>{Cancel();if(Finished!=null)Finished();};content.Controls.Add(fallback);
   int preferred=content.Controls.Cast<Control>().Sum(c=>c.Height+c.Margin.Vertical)+content.Padding.Vertical;
   Height=Math.Min(Math.Max(310,preferred+6),Math.Max(310,Screen.PrimaryScreen.WorkingArea.Height-410));
   using(var shape=SoftTheme.Round(new RectangleF(0,0,Width,Height),15)){var old=Region;Region=new Region(shape);if(old!=null)old.Dispose();}
  }
+ void SaveDraft(){picks[CurrentQuestion]=checks.Where(c=>c.Item1.Checked).Select(c=>c.Item2).Concat(radios.Where(c=>c.Item1.Checked).Select(c=>c.Item2)).ToArray();typed[CurrentQuestion]=otherText.Text;bool other=otherCheck!=null?otherCheck.Checked:otherRadio.Checked;if(other)otherQuestions.Add(CurrentQuestion);else otherQuestions.Remove(CurrentQuestion);}
  public void SubmitCurrent(){
   validation.Text="";
   string answer="";bool other=otherCheck!=null?otherCheck.Checked:otherRadio.Checked;
@@ -100,7 +101,7 @@ class QuestionPanel:Form {
   if(other){if(String.IsNullOrWhiteSpace(otherText.Text)){validation.Text="기타 답변을 입력해 주세요.";return;}selected.Add(otherText.Text.Trim());}
   answer=String.Join(", ",selected);if(answer.Length==0){validation.Text="선택지를 고르거나 직접 입력해 주세요.";return;}
   answers[CurrentQuestion]=answer;
-  picks[CurrentQuestion]=selectedLabels;typed[CurrentQuestion]=otherText.Text;if(other)otherQuestions.Add(CurrentQuestion);else otherQuestions.Remove(CurrentQuestion);
+  SaveDraft();
   if(index<Request.questions.Length-1){index++;Build();return;}
   try{WriteResponse(false);}catch(IOException){validation.Text="전송하지 못했어요. 다시 눌러 주세요.";return;}catch(UnauthorizedAccessException){validation.Text="폴더 쓰기 권한을 확인해 주세요.";return;}answered=true;if(Finished!=null)Finished();
  }

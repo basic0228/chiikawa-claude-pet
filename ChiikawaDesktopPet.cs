@@ -52,30 +52,31 @@ static class Geometry {
 }
 class PetApp:ApplicationContext {
  public static readonly string[] Names={"치이카와","하치와레","우사기","모몽가"};
- public List<Pet> Pets=new List<Pet>(); public bool Paused=true,Follow,ClickThrough; public int PetSize=160;
+ public List<Pet> Pets=new List<Pet>(); public bool Paused=true,Follow,ClickThrough; public int PetSize=160; public int SelectedCharacter;
  public QuestionController Questions; public ClaudeStatus Claude=new ClaudeStatus(); NotifyIcon tray; public EventWaitHandle StopSignal=new EventWaitHandle(false,EventResetMode.ManualReset,"Local.ChiikawaClaudePet.Stop.v1"); ContextMenuStrip menu; TimerHolder smoke; bool quitting;
  string settings=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"settings.txt");
  public PetApp(bool test){
-  Questions=new QuestionController(this);Load(); for(int i=0;i<1;i++){var p=new Pet(this,i);Pets.Add(p);p.Show();}
+  Questions=new QuestionController(this);Load(); for(int i=0;i<1;i++){var p=new Pet(this,SelectedCharacter);Pets.Add(p);p.Show();}
   menu=new ContextMenuStrip();menu.Opening+=(s,e)=>FillMenu(menu);
-  tray=new NotifyIcon{Text="치이카와 데스크톱 펫",Icon=SystemIcons.Information,ContextMenuStrip=menu,Visible=true};
+  tray=new NotifyIcon{Text=Names[SelectedCharacter]+" · 클로드 펫",Icon=SystemIcons.Information,ContextMenuStrip=menu,Visible=true};
   tray.DoubleClick+=(s,e)=>Reset();
   Claude.Completed+=(label)=>{tray.ShowBalloonTip(6000,"클로드 응답 완료",label,ToolTipIcon.Info);System.Media.SystemSounds.Asterisk.Play();};
   if(test)smoke=new TimerHolder(2500,()=>Quit());
  }
- void Load(){try{if(!File.Exists(settings))return;var a=File.ReadAllLines(settings);int n;if(a.Length>0 && int.TryParse(a[0],out n)&&n>=100&&n<=240)PetSize=n;}catch(IOException){}catch(UnauthorizedAccessException){}}
- void Save(){try{Directory.CreateDirectory(Path.GetDirectoryName(settings));File.WriteAllText(settings,PetSize.ToString());}catch(IOException){}catch(UnauthorizedAccessException){}}
+ void Load(){try{if(!File.Exists(settings))return;var a=File.ReadAllLines(settings);int n;if(a.Length>0 && int.TryParse(a[0],out n)&&n>=100&&n<=240)PetSize=n;if(a.Length>1&&int.TryParse(a[1],out n)&&n>=0&&n<Names.Length)SelectedCharacter=n;}catch(IOException){}catch(UnauthorizedAccessException){}}
+ void Save(){try{Directory.CreateDirectory(Path.GetDirectoryName(settings));File.WriteAllText(settings,PetSize.ToString()+Environment.NewLine+SelectedCharacter);}catch(IOException){}catch(UnauthorizedAccessException){}}
  ToolStripMenuItem Item(string name,bool check,Action action){var i=new ToolStripMenuItem(name){Checked=check};i.Click+=(s,e)=>action();return i;}
  public void FillMenu(ContextMenuStrip m){while(m.Items.Count>0)m.Items[0].Dispose();m.Items.Add(new ToolStripMenuItem("치이카와와 친구들"){Enabled=false});
 
 
   m.Items.Add(Item("클릭 통과 (해제: 트레이 메뉴)",ClickThrough,()=>{ClickThrough=!ClickThrough;foreach(var p in Pets)p.SetClickThrough(ClickThrough);}));
-  var chars=new ToolStripMenuItem("보일 친구");for(int i=0;i<Pets.Count;i++){var p=Pets[i];chars.DropDownItems.Add(Item(Names[i],p.Visible,()=>{if(p.Visible)p.Hide();else{p.Rehome();p.Show();}}));}m.Items.Add(chars);
+  var chars=new ToolStripMenuItem("캐릭터 선택");for(int i=0;i<Names.Length;i++){int value=i;var choice=Item(Names[i],SelectedCharacter==i,()=>SelectCharacter(value));chars.DropDownItems.Add(choice);}m.Items.Add(chars);
   var sizes=new ToolStripMenuItem("크기");foreach(int n in new[]{120,160,200}){int value=n;sizes.DropDownItems.Add(Item(n==120?"작게":n==160?"보통":"크게",PetSize==n,()=>{PetSize=value;foreach(var p in Pets)p.ResizePet();Save();}));}m.Items.Add(sizes);
   m.Items.Add("친구들 다시 모으기",null,(s,e)=>Reset());m.Items.Add(new ToolStripSeparator());
   m.Items.Add("사용 방법",null,(s,e)=>MessageBox.Show("드래그: 위치 이동\n클릭: 반응 보기\n두 번 클릭: 잠자기 / 깨우기\n우클릭: 설정\n\n클릭 통과 중에는 작업 표시줄의 트레이 아이콘에서 해제할 수 있습니다.\n종료도 트레이 메뉴에서 할 수 있습니다.","사용 방법"));
   m.Items.Add("종료",null,(s,e)=>Quit());
  }
+ public void SelectCharacter(int index){if(index<0||index>=Names.Length)throw new ArgumentOutOfRangeException("index");SelectedCharacter=index;foreach(var pet in Pets)pet.ChangeCharacter(index);if(tray!=null)tray.Text=Names[index]+" · 클로드 펫";Save();}
  public void Reset(){ClickThrough=false;Follow=false;foreach(var p in Pets){p.SetClickThrough(false);p.Rehome();p.Show();}}
  public void Quit(){if(quitting)return;quitting=true;if(Questions!=null)Questions.Dispose();Save();if(smoke!=null)smoke.Dispose();foreach(var p in Pets){p.AllowClose=true;p.Close();}tray.Visible=false;tray.Dispose();menu.Dispose();StopSignal.Dispose();ExitThread();}
 }
@@ -95,12 +96,14 @@ class Pet:Form {
   FormClosing+=(s,e)=>{if(!AllowClose){e.Cancel=true;Hide();}};
   Rehome();try{if(File.Exists(PositionFile)){var parts=File.ReadAllText(PositionFile).Split(',');int px,py;if(parts.Length==2&&int.TryParse(parts[0],out px)&&int.TryParse(parts[1],out py)){Location=new Point(px,py);ClampHere();}}}catch(IOException){}catch(UnauthorizedAccessException){}timer=new System.Windows.Forms.Timer{Interval=TickMs};timer.Tick+=(s,e)=>Step();timer.Start();
  }
+ public int CharacterIndex{get{return kind;}}
+ public void ChangeCharacter(int index){if(index<0||index>=PetApp.Names.Length)throw new ArgumentOutOfRangeException("index");kind=index;sleeping=false;reaction=30;Text=PetApp.Names[index];AccessibleName=Text;Render();}
  protected override bool ShowWithoutActivation{get{return true;}}
  protected override CreateParams CreateParams{get{var c=base.CreateParams;c.ExStyle|=0x08080080;return c;}}
  public void SetClickThrough(bool enabled){int style=GetWindowLong(Handle,-20);SetWindowLong(Handle,-20,enabled?style|0x20:style&~0x20);SetWindowPos(Handle,IntPtr.Zero,0,0,0,0,0x37);}
  public void SetQuestionHeight(int height){if(questionHeight==height)return;if(questionHeight==0&&height>0)questionAnchor=Location;bool restore=questionHeight>0&&height==0;questionHeight=height;ResizePet();if(restore){Location=questionAnchor;ClampHere();}}
  public void ResizePet(){Size=new Size(Math.Max(320,app.PetSize+20),app.PetSize+195+questionHeight);ClampHere();Invalidate();}
- string PositionFile {get{return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"position-"+kind+".txt");}}
+ string PositionFile {get{return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"position-0.txt");}}
  public void SavePosition(){if(questionHeight>0)questionAnchor=Location;try{File.WriteAllText(PositionFile,Left+","+Top);}catch(IOException){}catch(UnauthorizedAccessException){}}
  public void Rehome(){var a=Screen.PrimaryScreen.WorkingArea;var p=Geometry.Clamp(new Point(a.Left+40+kind*(app.PetSize+20),a.Bottom-Height-20),Size,a);Location=p;x=Left;y=Top;ChooseDirection();}
  void ClampHere(){var p=Geometry.Clamp(Location,Size,Screen.FromRectangle(Bounds).WorkingArea);Location=p;x=Left;y=Top;}
@@ -194,7 +197,7 @@ static class Art {
  }
 }
 static class Tests {
- public static void Run(string file){QuestionTests.Run();int count=0;Action<bool,string> check=(ok,name)=>{if(!ok)throw new Exception(name);count++;};
+ public static void Run(string file){QuestionTests.Run();NavigationAndCharacterTests.Navigation();int count=0;Action<bool,string> check=(ok,name)=>{if(!ok)throw new Exception(name);count++;};
   var size=new Size(160,195);var area=new Rectangle(-1920,0,1920,1040);
   check(Geometry.Clamp(new Point(-2000,-50),size,area)==new Point(-1920,0),"negative monitor origin");
   check(Geometry.Clamp(new Point(0,1040),size,area)==new Point(-160,845),"right bottom edges");
@@ -213,7 +216,7 @@ static class Tests {
    app.Claude.Title="이번 주 작업 정리";app.Claude.Label="클로드 작업 중\n이번 주 커밋·메모리 기록을 모아서 작업 내용을 정리하고 있어요. / README.md 내용을 살펴보고 있어요.";
    using(var preview=new Bitmap(pet.Width,pet.Height))using(var graphics=Graphics.FromImage(preview)){pet.DrawFrame(graphics);preview.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"chatty-preview.png"));}
    var fixedLocation=pet.Location;for(int step=0;step<120;step++)typeof(Pet).GetMethod("Step",flags).Invoke(pet,null);check(pet.Location==fixedLocation,"stationary during idle updates");
-   app.FillMenu(new ContextMenuStrip());pet.SetClickThrough(true);pet.SetClickThrough(false);
+   NavigationAndCharacterTests.Characters(app,pet);app.FillMenu(new ContextMenuStrip());pet.SetClickThrough(true);pet.SetClickThrough(false);
    app.StopSignal.Set();typeof(Pet).GetMethod("Step",flags).Invoke(pet,null);check(pet.IsDisposed,"graceful shutdown signal closes pet");
   }finally{app.Quit();}
   File.WriteAllText(file,"PASS: "+count+" checks. Geometry (negative monitor, bounds, small screen) and 12 character/state render checks.");
