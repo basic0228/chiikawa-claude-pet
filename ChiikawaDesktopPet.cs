@@ -127,10 +127,10 @@ class Pet:Form {
    using(var pen=new Pen(ink,1.8f))g.DrawPath(pen,card);
   }
   using(var pen=new Pen(Color.FromArgb(188,203,166),1))g.DrawRectangle(pen,10,11,Width-21,148);
-  using(var brush=new SolidBrush(Color.FromArgb(236,241,226)))g.FillEllipse(brush,19,18,34,34);
-  PointF[] crown={new PointF(25,38),new PointF(24,27),new PointF(30,31),new PointF(36,24),new PointF(42,31),new PointF(48,27),new PointF(47,38)};
+  using(var brush=new SolidBrush(Color.FromArgb(236,241,226)))g.FillEllipse(brush,19,23,34,34);
+  PointF[] crown={new PointF(25,43),new PointF(24,32),new PointF(30,36),new PointF(36,29),new PointF(42,36),new PointF(48,32),new PointF(47,43)};
   using(var brush=new SolidBrush(green))g.FillPolygon(brush,crown);
-  using(var pen=new Pen(green,1.8f)){pen.StartCap=LineCap.Round;pen.EndCap=LineCap.Round;g.DrawLine(pen,27,42,45,42);}
+  using(var pen=new Pen(green,1.8f)){pen.StartCap=LineCap.Round;pen.EndCap=LineCap.Round;g.DrawLine(pen,27,47,45,47);}
   using(var brush=new SolidBrush(Color.FromArgb(68,94,61)))using(var font=CertificateTypeface.Create(16.5f))g.DrawString("제초 자격증",font,brush,61,20);
   using(var brush=new SolidBrush(Color.FromArgb(139,150,123)))using(var font=CertificateTypeface.Create(9.5f))g.DrawString("풀뽑기 검정",font,brush,63,44);
   float badgeX=Width-123;
