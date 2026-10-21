@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Web.Script.Serialization;
@@ -53,36 +54,43 @@ class QuestionPanel:Form {
   Shown+=(s,e)=>PrepareLayout();
  }
  public void PrepareLayout(){CreateControl();content.CreateControl();content.PerformLayout();foreach(Control control in content.Controls){control.CreateControl();control.Update();}PerformLayout();Refresh();}
- Label TextLabel(string text,int width,Font font,Color color){return new Label{Text=text,Width=width,AutoSize=false,Height=TextRenderer.MeasureText(text,font,new Size(width,1000),TextFormatFlags.WordBreak).Height+6,Font=font,ForeColor=color,Margin=new Padding(0,2,0,6)};}
- Button Button(string text,int width){return new Button{Text=text,Width=width,Height=32,FlatStyle=FlatStyle.Flat,BackColor=Color.FromArgb(235,241,224),ForeColor=Color.FromArgb(68,94,61),Margin=new Padding(0,4,7,3)};}
+ public static IEnumerable<Control> AllControls(Control root){foreach(Control child in root.Controls){yield return child;foreach(Control nested in AllControls(child))yield return nested;}}
+ Label TextLabel(string text,int width,Font font,Color color){return new Label{Text=text,Width=width,AutoSize=false,Height=TextRenderer.MeasureText(text,font,new Size(width,1000),TextFormatFlags.WordBreak).Height+5,Font=font,ForeColor=color,Margin=new Padding(0,2,0,9)};}
+ Button Button(string text,int width){return new SoftButton{Text=text,Width=width,Height=39,Primary=text!="이전",Margin=new Padding(0,1,8,0)};}
  void Build(){
   if(content!=null)content.Dispose();checks=new List<Tuple<CheckBox,string>>();radios=new List<Tuple<RadioButton,string>>();
-  content=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(14,10,10,8)};Controls.Add(content);
-  var q=Request.questions[index];content.Controls.Add(TextLabel("답변 선택  "+(index+1)+" / "+Request.questions.Length,270,new Font(Font,FontStyle.Bold),Color.FromArgb(94,124,76)));
-  content.Controls.Add(TextLabel(q.question,270,new Font(Font,FontStyle.Bold),Color.FromArgb(91,73,59)));
+  content=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(16,15,10,13),BackColor=Color.FromArgb(255,253,245)};Controls.Add(content);
+  content.Paint+=(s,e)=>{e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;using(var outline=SoftTheme.Round(new RectangleF(1,1,Width-3,Height-3),14))using(var pen=new Pen(Color.FromArgb(193,205,171),1.3f))e.Graphics.DrawPath(pen,outline);};
+  var q=Request.questions[index];content.Controls.Add(new QuestionHeading{Width=280,Height=28,Counter=(index+1)+" / "+Request.questions.Length,Margin=new Padding(0,0,0,6)});
+  content.Controls.Add(TextLabel(q.question,280,new Font(Font.FontFamily,10,FontStyle.Bold),Color.FromArgb(95,78,62)));
   string previous;answers.TryGetValue(q.question,out previous);
   foreach(var option in q.options??new QuestionOption[0]){
    if(option==null||String.IsNullOrWhiteSpace(option.label))continue;
-   var label=option.label;int height=Math.Max(25,TextRenderer.MeasureText(label,Font,new Size(245,1000),TextFormatFlags.WordBreak).Height+8);
-   if(q.multiSelect){var check=new CheckBox{Text=label,Width=270,Height=height,Margin=new Padding(0,2,0,1)};content.Controls.Add(check);checks.Add(Tuple.Create(check,label));if(picks.ContainsKey(q.question)&&picks[q.question].Contains(label))check.Checked=true;}
-   else {var radio=new RadioButton{Text=label,Width=270,Height=height,Margin=new Padding(0,2,0,1),AutoCheck=true};content.Controls.Add(radio);radios.Add(Tuple.Create(radio,label));if(previous==label)radio.Checked=true;}
-   if(!String.IsNullOrWhiteSpace(option.description))content.Controls.Add(TextLabel(option.description,260,new Font(Font.FontFamily,8.2f),Color.Gray));
+   var label=option.label;int height=SoftTheme.ChoiceHeight(label,option.description);
+   if(q.multiSelect){var check=new SoftCheck{Text=label,Description=option.description,Width=280,Height=height,Margin=new Padding(0,0,0,7)};content.Controls.Add(check);checks.Add(Tuple.Create((CheckBox)check,label));if(picks.ContainsKey(q.question)&&picks[q.question].Contains(label))check.Checked=true;}
+   else {var radio=new SoftRadio{Text=label,Description=option.description,Width=280,Height=height,Margin=new Padding(0,0,0,7)};content.Controls.Add(radio);radios.Add(Tuple.Create((RadioButton)radio,label));if(previous==label)radio.Checked=true;}
   }
-  if(q.multiSelect){otherCheck=new CheckBox{Text="기타 · 직접 입력",Width=270,Height=25};otherRadio=null;content.Controls.Add(otherCheck);}
-  else {otherRadio=new RadioButton{Text="기타 · 직접 입력",Width=270,Height=25};otherCheck=null;content.Controls.Add(otherRadio);}
-  otherText=new TextBox{Multiline=true,Width=270,Height=48,MaxLength=4000,Enabled=false,ScrollBars=ScrollBars.Vertical,BorderStyle=BorderStyle.FixedSingle,BackColor=Color.White};content.Controls.Add(otherText);
-  if(otherCheck!=null)otherCheck.CheckedChanged+=(s,e)=>{otherText.Enabled=otherCheck.Checked;if(otherText.Enabled)otherText.Focus();};
-  if(otherRadio!=null)otherRadio.CheckedChanged+=(s,e)=>{otherText.Enabled=otherRadio.Checked;if(otherText.Enabled)otherText.Focus();};
+  if(q.multiSelect){otherCheck=new SoftCheck{Text="기타 · 직접 입력",Width=280,Height=40,IsOther=true,Margin=new Padding(0,0,0,7)};otherRadio=null;content.Controls.Add(otherCheck);}
+  else {otherRadio=new SoftRadio{Text="기타 · 직접 입력",Width=280,Height=40,IsOther=true,Margin=new Padding(0,0,0,7)};otherCheck=null;content.Controls.Add(otherRadio);}
+  var inputCard=new SoftInput{Width=280,Height=67,Margin=new Padding(0,0,0,0)};
+  otherText=new TextBox{Multiline=true,Location=new Point(12,10),Width=256,Height=47,MaxLength=4000,Enabled=false,ScrollBars=ScrollBars.None,BorderStyle=BorderStyle.None,BackColor=Color.FromArgb(248,248,237),ForeColor=Color.FromArgb(95,78,62),Font=new Font(Font.FontFamily,9.2f)};
+  inputCard.Controls.Add(otherText);inputCard.Input=otherText;content.Controls.Add(inputCard);
+  Action toggleInput=()=>{bool selected=otherCheck!=null?otherCheck.Checked:otherRadio.Checked;otherText.Enabled=selected;otherText.BackColor=selected?Color.FromArgb(255,254,249):Color.FromArgb(248,248,237);inputCard.Invalidate();if(selected)otherText.Focus();};
+  if(otherCheck!=null)otherCheck.CheckedChanged+=(s,e)=>toggleInput();
+  if(otherRadio!=null)otherRadio.CheckedChanged+=(s,e)=>toggleInput();
   if(typed.ContainsKey(q.question))otherText.Text=typed[q.question];
   if(otherQuestions.Contains(q.question)){if(otherCheck!=null)otherCheck.Checked=true;else otherRadio.Checked=true;}
-  validation=TextLabel("",270,Font,Color.Firebrick);validation.Height=22;content.Controls.Add(validation);
+  validation=TextLabel("",280,Font,Color.FromArgb(181,108,91));validation.Height=19;validation.Margin=new Padding(0,2,0,2);content.Controls.Add(validation);
   otherText.TextChanged+=(s,e)=>validation.Text="";
-  var actions=new FlowLayoutPanel{Width=280,Height=39,Margin=new Padding(0)};
-  back=Button("이전",59);back.Enabled=index>0;back.Click+=(s,e)=>{index--;Build();};actions.Controls.Add(back);
-  next=Button(index==Request.questions.Length-1?"답변 보내기":"다음",111);next.Click+=(s,e)=>SubmitCurrent();actions.Controls.Add(next);content.Controls.Add(actions);
-  var fallback=new LinkLabel{Text="클로드 창에서 답하기",Width=270,Height=24,LinkColor=Color.FromArgb(119,130,103),Margin=new Padding(0,3,0,0)};fallback.LinkClicked+=(s,e)=>{Cancel();if(Finished!=null)Finished();};content.Controls.Add(fallback);
+  foreach(var radio in radios)radio.Item1.CheckedChanged+=(s,e)=>validation.Text="";
+  foreach(var check in checks)check.Item1.CheckedChanged+=(s,e)=>validation.Text="";
+  var actions=new FlowLayoutPanel{Width=288,Height=42,Margin=new Padding(0)};
+  back=Button("이전",65);back.Enabled=index>0;back.Click+=(s,e)=>{index--;Build();};if(index>0)actions.Controls.Add(back);
+  next=Button(index==Request.questions.Length-1?"답변 보내기":"다음",index>0?207:280);next.Click+=(s,e)=>SubmitCurrent();actions.Controls.Add(next);content.Controls.Add(actions);
+  var fallback=new LinkLabel{Text="클로드 창에서 답할게요",Width=280,Height=24,TextAlign=ContentAlignment.MiddleCenter,LinkColor=Color.FromArgb(145,151,128),ActiveLinkColor=Color.FromArgb(102,130,84),LinkBehavior=LinkBehavior.HoverUnderline,Margin=new Padding(0,7,0,0)};fallback.LinkClicked+=(s,e)=>{Cancel();if(Finished!=null)Finished();};content.Controls.Add(fallback);
   int preferred=content.Controls.Cast<Control>().Sum(c=>c.Height+c.Margin.Vertical)+content.Padding.Vertical;
-  Height=Math.Min(Math.Max(310,preferred+8),Math.Max(310,Screen.PrimaryScreen.WorkingArea.Height-410));
+  Height=Math.Min(Math.Max(310,preferred+6),Math.Max(310,Screen.PrimaryScreen.WorkingArea.Height-410));
+  using(var shape=SoftTheme.Round(new RectangleF(0,0,Width,Height),15)){var old=Region;Region=new Region(shape);if(old!=null)old.Dispose();}
  }
  public void SubmitCurrent(){
   validation.Text="";
@@ -116,7 +124,7 @@ static class QuestionTests {
   for(int scenario=0;scenario<4;scenario++){
    string id=Guid.NewGuid().ToString("N"),path=Path.Combine(dir,id+".request.json"),answer=path.Replace(".request.json",".answer.json");
    var req=request(id,scenario==2);using(var form=new QuestionPanel(req,path)){
-    var controls=form.Controls[0].Controls.Cast<Control>().ToArray();
+    var controls=QuestionPanel.AllControls(form).ToArray();
     form.SubmitCurrent();check(!File.Exists(answer),"empty answer cannot submit");
     if(scenario==0){controls.OfType<RadioButton>().First(r=>r.Text=="추천 방식").Checked=true;form.SubmitCurrent();}
     if(scenario==1){controls.OfType<RadioButton>().First(r=>r.Text.StartsWith("기타")).Checked=true;var box=controls.OfType<TextBox>().Single();check(box.Enabled,"other input enabled");form.SubmitCurrent();check(!File.Exists(answer),"blank other cannot submit");box.Text="직접 정한 답변";form.SubmitCurrent();}
