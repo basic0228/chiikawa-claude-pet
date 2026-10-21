@@ -1,0 +1,7 @@
+status/
+position-*.txt
+settings.txt
+test-results.txt
+*.tmp
+*.chiikawa-backup-*
+*.chiikawa-uninstall-backup-*
