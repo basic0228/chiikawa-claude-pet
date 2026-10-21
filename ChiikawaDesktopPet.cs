@@ -72,12 +72,12 @@ class PetApp:ApplicationContext {
   m.Items.Add(Item("클릭 통과 (해제: 트레이 메뉴)",ClickThrough,()=>{ClickThrough=!ClickThrough;foreach(var p in Pets)p.SetClickThrough(ClickThrough);}));
   var chars=new ToolStripMenuItem("캐릭터 선택");for(int i=0;i<Names.Length;i++){int value=i;var choice=Item(Names[i],SelectedCharacter==i,()=>SelectCharacter(value));chars.DropDownItems.Add(choice);}m.Items.Add(chars);
   var sizes=new ToolStripMenuItem("크기");foreach(int n in new[]{120,160,200}){int value=n;sizes.DropDownItems.Add(Item(n==120?"작게":n==160?"보통":"크게",PetSize==n,()=>{PetSize=value;foreach(var p in Pets)p.ResizePet();Save();}));}m.Items.Add(sizes);
-  m.Items.Add("친구들 다시 모으기",null,(s,e)=>Reset());m.Items.Add(new ToolStripSeparator());
+  m.Items.Add("위치 초기화",null,(s,e)=>Reset());m.Items.Add(new ToolStripSeparator());
   m.Items.Add("사용 방법",null,(s,e)=>MessageBox.Show("드래그: 위치 이동\n클릭: 반응 보기\n두 번 클릭: 잠자기 / 깨우기\n우클릭: 설정\n\n클릭 통과 중에는 작업 표시줄의 트레이 아이콘에서 해제할 수 있습니다.\n종료도 트레이 메뉴에서 할 수 있습니다.","사용 방법"));
   m.Items.Add("종료",null,(s,e)=>Quit());
  }
  public void SelectCharacter(int index){if(index<0||index>=Names.Length)throw new ArgumentOutOfRangeException("index");SelectedCharacter=index;foreach(var pet in Pets)pet.ChangeCharacter(index);if(tray!=null)tray.Text=Names[index]+" · 클로드 펫";Save();}
- public void Reset(){ClickThrough=false;Follow=false;foreach(var p in Pets){p.SetClickThrough(false);p.Rehome();p.Show();}}
+ public void Reset(){foreach(var p in Pets){p.Rehome();p.SavePosition();p.Show();}}
  public void Quit(){if(quitting)return;quitting=true;if(Questions!=null)Questions.Dispose();Save();if(smoke!=null)smoke.Dispose();foreach(var p in Pets){p.AllowClose=true;p.Close();}tray.Visible=false;tray.Dispose();menu.Dispose();StopSignal.Dispose();ExitThread();}
 }
 class TimerHolder:IDisposable {System.Windows.Forms.Timer t; public TimerHolder(int ms,Action a){t=new System.Windows.Forms.Timer{Interval=ms};t.Tick+=(s,e)=>{t.Stop();a();};t.Start();}public void Dispose(){t.Dispose();}}
@@ -105,7 +105,7 @@ class Pet:Form {
  public void ResizePet(){Size=new Size(Math.Max(320,app.PetSize+20),app.PetSize+195+questionHeight);ClampHere();Invalidate();}
  string PositionFile {get{return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"position-0.txt");}}
  public void SavePosition(){if(questionHeight>0)questionAnchor=Location;try{File.WriteAllText(PositionFile,Left+","+Top);}catch(IOException){}catch(UnauthorizedAccessException){}}
- public void Rehome(){var a=Screen.PrimaryScreen.WorkingArea;var p=Geometry.Clamp(new Point(a.Left+40+kind*(app.PetSize+20),a.Bottom-Height-20),Size,a);Location=p;x=Left;y=Top;ChooseDirection();}
+ public void Rehome(){var a=Screen.PrimaryScreen.WorkingArea;var p=Geometry.Clamp(new Point(a.Left+40,a.Bottom-Height-20),Size,a);Location=p;x=Left;y=Top;ChooseDirection();}
  void ClampHere(){var p=Geometry.Clamp(Location,Size,Screen.FromRectangle(Bounds).WorkingArea);Location=p;x=Left;y=Top;}
  void ChooseDirection(){var angle=random.NextDouble()*Math.PI*2;double speed=.55+kind*.13;vx=Math.Cos(angle)*speed;vy=Math.Sin(angle)*speed*.65;changeIn=random.Next(75,220);}
  void Down(object s,MouseEventArgs e){if(e.Button!=MouseButtons.Left)return;held=true;moved=false;origin=Location;mouseDown=Cursor.Position;Capture=true;}
